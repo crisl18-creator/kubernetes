@@ -17,3 +17,4 @@ infra/backups/*.db
 *.csr
 *.crt
 kubeconfig-appuser
+datos
