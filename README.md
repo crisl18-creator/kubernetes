@@ -20,7 +20,7 @@ Cada módulo tiene un **README** (teoría + demostración) y uno o varios **labo
 | Requisito | Detalle |
 |-----------|---------|
 | Cuenta GitHub | Personal y gratuita |
-| Codespace | Recomendado **8 vCPU / 16 GB RAM** (clúster HA + monitorización) |
+| Codespace | Recomendado **8 vCPU / 16 GB RAM** (Prometheus en M07) |
 | Navegador | Chromium actualizado |
 | Conexión | Salida a GitHub, GHCR, `registry.k8s.io` y Docker Hub |
 | Infraestructura | [infra/README.md](infra/README.md) |
@@ -58,10 +58,10 @@ Formación práctica: cada bloque tiene teoría en el README del módulo y labor
 
 ### Gestión del ciclo de vida de aplicaciones — [M03](labs/M03-ciclo-vida-aplicaciones/README.md)
 
-- Despliegues: actualizaciones y rollbacks.
-- Configuración con ConfigMaps y Secrets.
-- Escalado.
-- Laboratorio: desplegar una aplicación, Rolling Update y rollback.
+- Deployment, ReplicaSet y Pods: quién crea a quién.
+- Escalado, canary, pases de versión, imagen que falla y rollback (todo con manifiestos).
+- ConfigMaps y Secrets.
+- Laboratorio: primero lo básico del controlador; después config. El Service se trabaja en M05.
 
 ### Diseño y configuración del clúster — [M04](labs/M04-diseno-cluster-helm/README.md)
 
@@ -70,14 +70,14 @@ Formación práctica: cada bloque tiene teoría en el README del módulo y labor
 - Instalación y despliegue de un clúster.
 - Pruebas de clúster y nodos.
 - Helm para instalar y actualizar aplicaciones y servicios.
-- Laboratorio: clúster HA con maestros redundantes; apagar un maestro; Helm con values personalizados.
+- Laboratorio: un control-plane y dos workers; parar el maestro y ver el efecto; Helm con values personalizados.
 
 ### Red y networking — [M05](labs/M05-red-networking/README.md)
 
 - Networking en Kubernetes.
 - Configuración de Pods y Services.
 - Balanceadores de carga.
-- Laboratorio: balancear tráfico entre Pods; NetworkPolicy entre namespaces.
+- Laboratorio: endpoints del Service; un Pod impostor con las mismas labels; NetworkPolicy entre namespaces.
 
 ### Seguridad — [M06](labs/M06-seguridad/README.md)
 

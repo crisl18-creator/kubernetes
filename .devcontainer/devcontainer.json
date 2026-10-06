@@ -1,14 +1,19 @@
 {
   "name": "Kubernetes Administradores Lab",
   "features": {
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:4": {
+      "moby": true,
+      "azureDnsAutoDetection": true,
+      "disableIp6tables": true
+    },
     "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
       "version": "latest",
       "helm": "latest",
       "minikube": "none"
     }
   },
-  "postCreateCommand": "chmod +x scripts/*.sh && bash scripts/bootstrap-tools.sh",
+  "postCreateCommand": "chmod +x scripts/*.sh scripts/*.py && bash scripts/bootstrap-tools.sh",
+  "postStartCommand": "bash scripts/kind-net-fix.sh || true",
   "forwardPorts": [8888, 8889, 8080, 8443, 3000, 9090],
   "portsAttributes": {
     "8888": { "label": "M00 Web", "onAutoForward": "notify" },

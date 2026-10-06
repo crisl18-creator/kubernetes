@@ -70,8 +70,7 @@ aquí usas kind y **observas** el resultado de kubeadm (`admin.conf`, manifiesto
 > Recorrido que hace el formador en vivo. Tono descriptivo, sin imperativos.
 
 1. Al ejecutar `kubectl get pods -n kube-system`, aparecen `kube-apiserver`, `etcd`,
-   `kube-scheduler` y `kube-controller-manager` **en cada control-plane** (estáticos, un
-   pod por nodo). Es el diagrama de arquitectura, pero en tres maestros.
+   `kube-scheduler` y `kube-controller-manager` en el control-plane (estáticos).
 
 2. `kubectl get --raw=/apis | head` muestra grupos de API (`apps`, `networking.k8s.io`…).
    Todo objeto vive en un grupo/versión/recurso.

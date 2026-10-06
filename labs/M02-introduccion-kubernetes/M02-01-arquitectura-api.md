@@ -37,9 +37,9 @@ kubectl version --short 2>/dev/null || kubectl version
 kubectl -n kube-system get pods -o wide | grep -E 'apiserver|etcd|scheduler|controller-manager'
 ```
 
-**Por qué:** En HA hay **tres** apiserver y **tres** etcd (stacked). El scheduler y el controller-manager también van por nodo de control-plane.
+**Por qué:** En este clúster hay **un** apiserver y **un** etcd (stacked) en el control-plane.
 
-**Resultado esperado:** tres filas de cada componente, `Running`, cada una en un nodo `control-plane*`.
+**Resultado esperado:** una fila de cada componente, `Running`, en `k8s-ops-control-plane`.
 
 ![API Server, etcd, scheduler y kubelet](../img/M02-demo-arquitectura.png)
 
@@ -76,7 +76,7 @@ docker exec k8s-ops-control-plane ls /etc/kubernetes/manifests
 
 `kubectl -n kube-system get pods -l component=etcd -o wide`
 
-→ Tres pods etcd, uno por control-plane.
+→ Un pod etcd, en el control-plane.
 
 **Grupos de API**
 
@@ -98,8 +98,8 @@ docker ps --format '{{.Names}}\t{{.Ports}}' | grep -i load
 <details>
 <summary>Ver solución</summary>
 
-Al **load balancer** de kind (`k8s-ops-external-load-balancer`), no a un maestro concreto.
-Por eso puedes parar un control-plane en M04 y kubectl sigue respondiendo.
+Al **apiserver** del único control-plane (`k8s-ops-control-plane`). Con un maestro, kind no crea
+`external-load-balancer`. Si paras ese nodo en M04, kubectl deja de responder.
 
 </details>
 
@@ -108,4 +108,4 @@ Por eso puedes parar un control-plane en M04 y kubectl sigue respondiendo.
 | Síntoma | Causa probable | Cómo arreglarlo |
 |---------|----------------|-----------------|
 | `The connection to the server … was refused` | Clúster no creado o contexto mal | `cluster-up.sh` + `kubectl config use-context kind-k8s-ops` |
-| Un solo etcd | No es el clúster HA del curso | Revisa `infra/kind/cluster.yaml` (3 control-plane) |
+| Un etcd extraño o ninguno | Clúster a medias | `kubectl -n kube-system get po -l component=etcd`; si hace falta, `cluster-up.sh` |

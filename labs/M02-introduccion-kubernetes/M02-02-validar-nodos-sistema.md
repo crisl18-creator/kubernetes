@@ -22,13 +22,23 @@ Validar el clúster como haría un administrador el día 0: nodos, taints, pods 
 
 ```bash
 kubectl get nodes -o wide
-kubectl describe node k8s-ops-worker | sed -n '/Roles:/,/Non-terminated/p' | head -40
 ```
 
-**Por qué:** `describe` enseña taints (`node-role.kubernetes.io/control-plane:NoSchedule`),
-capacidad y condiciones (`MemoryPressure`, `Ready`).
+Copia el **NAME** de un worker (en este curso: `k8s-ops-worker` o `k8s-ops-worker2`; el
+control-plane se llama `k8s-ops-control-plane`).
 
-**Resultado esperado:** workers sin taint de control-plane; control-plane con `NoSchedule`.
+```bash
+kubectl describe node k8s-ops-worker
+```
+
+Si copiaste el otro worker, pega **ese** nombre. No hace falta leer el describe entero:
+busca `Taints:`, `Conditions:` (`Ready`) y `Allocated resources`.
+
+**Por qué:** `describe` enseña taints (`node-role.kubernetes.io/control-plane:NoSchedule`),
+capacidad y presión de memoria. Un worker no debe llevar el taint de control-plane.
+
+**Resultado esperado:** tres nodos `Ready`. El control-plane con `NoSchedule`; los workers
+sin ese taint. En `-o wide` ves IPs `172.18.0.x` (red Docker `kind`).
 
 ### 2 — Todo lo que ya corre
 
@@ -42,17 +52,21 @@ kubectl get pods --all-namespaces -o wide
 
 **Resultado esperado:** `kube-system`, `calico-system` o `calico-node`, `ingress-nginx`, `local-path-storage`, `metrics-server`. Pods `Running` o `Completed`.
 
-### 3 — Condiciones de un nodo
+### 3 — Ready se ve en la tabla
 
 **Acción:**
 
 ```bash
-kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}'
+kubectl get nodes
 ```
 
-**Por qué:** Un nodo `Ready=True` significa kubelet + CNI + runtime coherentes, no solo “el contenedor kind existe”.
+La columna **STATUS** ya dice `Ready`. Si quieres el detalle de un nodo, copia el NAME
+y `kubectl describe node …` (paso 1). No hace falta jsonpath.
 
-**Resultado esperado:** cinco líneas `True`.
+**Por qué:** Un nodo `Ready` significa kubelet + CNI + runtime coherentes, no solo “el
+contenedor kind existe”.
+
+**Resultado esperado:** **tres** filas `Ready` (1 control-plane + 2 workers).
 
 ### 4 — Métricas básicas
 
@@ -84,7 +98,8 @@ kubectl top nodes
 
 ### 1 — ¿Dónde se programa un Pod de usuario?
 
-Crea un pod de prueba y mira el nodo:
+Crea un pod de prueba, mira en qué nodo cae (columna NODE) y bórralo. El nombre aquí
+sí es fijo (`probe`):
 
 ```bash
 kubectl run probe --image=busybox:1.37 --restart=Never -- sleep 30
@@ -104,4 +119,4 @@ Debe caer en un **worker** (taint de control-plane). Si cayera en un maestro, el
 | Síntoma | Causa probable | Cómo arreglarlo |
 |---------|----------------|-----------------|
 | `top` error | metrics-server aún arrancando o sin `--kubelet-insecure-tls` | Espera; el addon del curso ya lleva el flag |
-| Pods Calico CrashLoop | CIDR distinto al de kind | `cluster.yaml` usa `192.168.0.0/16` (default Calico) |
+| Pods Calico CrashLoop | CIDR distinto al de kind | `cluster.yaml` y Calico usan `10.244.0.0/16` |

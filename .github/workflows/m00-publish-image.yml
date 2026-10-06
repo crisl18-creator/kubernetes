@@ -1,27 +1,41 @@
+# CI/CD del lab M00-10.
+# Lo lee GitHub Actions. No lo ejecutes con "bash": no es un script de terminal.
+#
+# Flujo: evento (botón o push) → runner limpio → checkout → login GHCR → build → push.
+
 name: M00 publicar imagen
 
+# Cuándo se pone en marcha este workflow
 on:
+  # 1) A mano: Actions → este workflow → Run workflow
   workflow_dispatch:
+  # 2) Automático: un push a main que toque la web o este fichero
   push:
     branches: [main]
     paths:
       - "infra/m00/web/**"
       - ".github/workflows/m00-publish-image.yml"
 
+# Constantes para no repetir URLs
 env:
   REGISTRY: ghcr.io
+  # github.repository = "cuenta/kubernetes-administradores-201"
   IMAGE_NAME: ${{ github.repository }}/m00-web
 
 jobs:
+  # Un job = una máquina. Aquí solo hay una: "publish"
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: read      # clonar el repo
+      packages: write     # crear/actualizar el paquete en GHCR
+
     steps:
+      # Copia el git del commit a /github/workspace del runner
       - name: Checkout
         uses: actions/checkout@v4
 
+      # docker login ghcr.io --username <actor> --password <token>
       - name: Login en GHCR
         uses: docker/login-action@v3
         with:
@@ -29,10 +43,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # GHCR exige el nombre en minúsculas (TuUsuario ≠ tuusuario)
       - name: Nombre de imagen en minúsculas
         id: image
         run: echo "name=${REGISTRY}/$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
+      # Equivale a: docker build --target runtime && docker push (dos tags)
       - name: Build y push (etapa runtime)
         uses: docker/build-push-action@v6
         with:

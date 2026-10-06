@@ -41,7 +41,7 @@ if command -v kubectl >/dev/null 2>&1; then
   if kubectl get nodes >/dev/null 2>&1; then
     not_ready="$(kubectl get nodes --no-headers 2>/dev/null | awk '$2 != "Ready" {print $1}' | wc -l | tr -d ' ')"
     total="$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')"
-    if [[ "$not_ready" == "0" && "$total" -ge 5 ]]; then
+    if [[ "$not_ready" == "0" && "$total" -ge 3 ]]; then
       check_ok "nodos Ready ($total)"
     elif [[ "$total" -gt 0 ]]; then
       check_warn "nodos Ready incompletos ($total total, $not_ready no Ready)"

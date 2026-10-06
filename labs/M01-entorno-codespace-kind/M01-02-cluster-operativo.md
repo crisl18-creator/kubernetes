@@ -6,7 +6,7 @@
 
 ### Objetivo
 
-Crear el clúster kind `k8s-ops` con alta disponibilidad y validar CNI, Ingress y StorageClass.
+Crear el clúster kind `k8s-ops` y validar CNI, Ingress y StorageClass.
 
 ### Prerrequisitos
 
@@ -24,10 +24,10 @@ Leer la config de kind, ejecutar `cluster-up.sh` y comprobar nodos y addons con 
 cat infra/kind/cluster.yaml
 ```
 
-**Por qué:** Ahí está el diseño que vas a administrar: 3 control-plane, 2 workers, CNI desactivado
+**Por qué:** Ahí está el diseño: 1 control-plane, 2 workers, CNI desactivado
 (lo pondrá Calico), mapeo `8080/8443` para Ingress.
 
-**Resultado esperado:** `name: k8s-ops`, `disableDefaultCNI: true`, tres `role: control-plane`.
+**Resultado esperado:** `name: k8s-ops`, un `role: control-plane` y dos `role: worker`.
 
 ### 2 — Crear el clúster
 
@@ -45,7 +45,7 @@ La primera vez descarga la imagen `kindest/node` y los manifiestos de Calico; pu
 
 ```bash
 kubectl get nodes
-# cinco nodos Ready; contexto kind-k8s-ops
+# tres nodos Ready; contexto kind-k8s-ops
 ```
 
 > [!WARNING]
@@ -80,7 +80,7 @@ kubectl -n kube-system get deploy metrics-server
 
 `kubectl get nodes -o wide`
 
-→ 3 control-plane + 2 workers, todos `Ready`.
+→ 1 control-plane + 2 workers, todos `Ready`.
 
 **CNI**
 
@@ -92,7 +92,7 @@ kubectl -n kube-system get deploy metrics-server
 
 ### 1 — Dónde está el quórum
 
-¿Cuántos contenedores Docker corresponden a nodos y cuál es el load balancer de la API?
+¿Cuántos contenedores Docker corresponden a nodos?
 
 ```bash
 docker ps --format '{{.Names}}'
@@ -101,8 +101,8 @@ docker ps --format '{{.Names}}'
 <details>
 <summary>Ver solución</summary>
 
-Cinco nombres `k8s-ops-control-plane*` / `k8s-ops-worker*`. El LB suele llamarse
-`k8s-ops-external-load-balancer`. Ese LB es el endpoint que usa tu kubectl.
+Tres nombres: `k8s-ops-control-plane`, `k8s-ops-worker`, `k8s-ops-worker2`.
+Con un solo control-plane kind **no** crea `external-load-balancer`.
 
 </details>
 
@@ -110,6 +110,7 @@ Cinco nombres `k8s-ops-control-plane*` / `k8s-ops-worker*`. El LB suele llamarse
 
 | Síntoma | Causa probable | Cómo arreglarlo |
 |---------|----------------|-----------------|
-| Timeout en `kind create` | Imagen lenta o RAM | Repetir; Codespace 16 GB; [TROUBLESHOOTING](../TROUBLESHOOTING.md) |
+| Timeout en `kind create` | Imagen lenta, RAM, o red kind IPv6 sin ip6tables | Repetir; Codespace 16 GB; `bash scripts/kind-net-fix.sh`; [TROUBLESHOOTING](../TROUBLESHOOTING.md) |
 | Nodos NotReady eterno | Calico no arranca | `kubectl get pods -A`; reset con `cluster-down` + `cluster-up` |
 | Contexto distinto | Otro cluster kind | `kubectl config use-context kind-k8s-ops` |
+| Pods `ImagePullBackOff` | `docker pull` no llena el nodo kind; `kind load docker-image` falla en Docker 29 | `bash scripts/kind-load-image.sh IMAGEN`; [TROUBLESHOOTING](../TROUBLESHOOTING.md) |

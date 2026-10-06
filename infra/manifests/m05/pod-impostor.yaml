@@ -1,0 +1,32 @@
+# Pod suelto con las MISMAS labels que el Service shop-web.
+# Kubernetes lo mete en los Endpoints aunque no lo haya creado el Deployment.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: shop-impostor
+  namespace: shop
+  labels:
+    app: shop-web
+spec:
+  containers:
+    - name: web
+      image: hashicorp/http-echo:1.0.0
+      args:
+        - "-text=IMPOSTOR"
+        - "-listen=:8080"
+      ports:
+        - containerPort: 8080
+          name: http
+      readinessProbe:
+        httpGet:
+          path: /
+          port: http
+        initialDelaySeconds: 2
+        periodSeconds: 5
+      resources:
+        requests:
+          cpu: 25m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi

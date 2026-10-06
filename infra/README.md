@@ -1,6 +1,6 @@
 # Infraestructura de laboratorio
 
-Clúster Kubernetes **operativo** para el curso: **kind** HA + addons (Calico, ingress-nginx,
+Clúster Kubernetes **operativo** para el curso: **kind** (1 control-plane + 2 workers) + addons (Calico, ingress-nginx,
 metrics-server, StorageClass `local-path`).
 
 ## Arranque
@@ -25,7 +25,7 @@ Reset:
 | Ruta | Uso |
 |------|-----|
 | `m00/` | Web visual, Dockerfiles y Compose del bloque previo (puertos 8888/8889) |
-| `kind/cluster.yaml` | kind `k8s-ops`: 3 control-plane + 2 workers, sin CNI por defecto |
+| `kind/cluster.yaml` | kind `k8s-ops`: 1 control-plane + 2 workers, sin CNI por defecto |
 | `addons/calico.yaml` | CNI + NetworkPolicy (Calico v3.29.3) |
 | `addons/ingress-nginx.yaml` | Ingress controller para kind (puertos 80/443 del nodo) |
 | `addons/metrics-server.yaml` | Métricas (`kubectl top`) con TLS inseguro hacia kubelet |
@@ -45,12 +45,12 @@ Reset:
                     │
          Services / NetworkPolicies
                     │
-         workers + control-planes (Calico)
+         workers + control-plane (Calico)
 ```
 
 - Contexto kubectl: `kind-k8s-ops`
-- API: load balancer de kind delante de los tres kube-apiserver
-- Pod CIDR: `192.168.0.0/16` · Service CIDR: `10.96.0.0/12`
+- API: kube-apiserver del único control-plane
+- Pod CIDR: Calico (`10.244.0.0/16`) · Service CIDR: `10.96.0.0/12`
 
 ## Requisitos
 

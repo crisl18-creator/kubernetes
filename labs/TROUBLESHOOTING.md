@@ -1,5 +1,79 @@
 # Solución de problemas — clúster kind en Codespace
 
+## Contenedores sin Internet (`apt`, `curl`, ImagePullBackOff)
+
+El Codespace **sí** llega a Internet (`docker pull nginx:1.14.1` funciona). Eso no implica
+que un contenedor *dentro* de Docker o un **nodo kind** pueda bajar nada.
+
+Hay dos almacenes de imágenes distintos:
+
+```text
+docker pull nginx:1.14.1          →  daemon Docker del Codespace
+kubectl apply (image: nginx:…)    →  containerd DENTRO del nodo kind
+```
+
+Kubelet nunca ve lo que bajaste con `docker pull`. Si el nodo no resuelve DNS (típico
+en Codespaces: kind reescribe `resolv.conf` a `127.0.0.11`), el Pod queda en
+`ImagePullBackOff` aunque la imagen ya esté en el Codespace.
+
+**Comprobar**
+
+```bash
+kubectl describe pod NOMBRE | tail -n 30
+docker exec k8s-ops-control-plane getent hosts registry-1.docker.io
+```
+
+**Cargar la imagen del Codespace en kind** (no hace falta que el nodo tenga red).
+
+No uses `kind load docker-image`: en Docker 29+ (Codespaces) revienta con
+`ctr: content digest sha256:…: not found` porque el tar lleva el índice multi-arch
+y faltan capas de otras arquitecturas.
+
+```bash
+# clúster del curso:
+bash scripts/kind-load-image.sh nginx:1.27 k8s-ops
+
+# o a mano (clúster por defecto se llama `kind`):
+docker image save --platform linux/amd64 --output /tmp/nginx.tar nginx:1.14.1
+kind load image-archive /tmp/nginx.tar --name kind
+kubectl rollout restart deploy/nginx-deployment
+```
+
+Si `docker image save` no admite `--platform`:
+
+```bash
+for node in $(kind get nodes --name kind); do
+  docker save nginx:1.14.1 | docker exec -i "$node" \
+    ctr --namespace=k8s.io images import --digests -
+done
+kubectl rollout restart deploy/nginx-deployment
+```
+
+**Arreglar DNS/NAT de los nodos** (el `cluster-up` ya lo lanza):
+
+```bash
+bash scripts/kind-net-fix.sh
+```
+
+En Codespaces actuales (Docker 29) la red Docker `kind` **no tiene NAT**. El kubelet
+solo hace pull si `scripts/kind-net-fix.sh` deja un proxy CONNECT en la gateway
+(`172.18.0.1:3128`) y `containerd` usa `HTTPS_PROXY`. `cluster-up.sh` ya lo lanza.
+
+Si `kind create` se queda en **Joining worker nodes**, los workers no llegan al
+API (`:6443`). En Docker 29 `bridge-nf-call-iptables=1` tira ese tráfico. No hace
+falta matar el proceso: `cluster-up.sh` apaga ese sysctl mientras crea el clúster.
+Si ya está colgado:
+
+```bash
+sudo sysctl -w net.bridge.bridge-nf-call-iptables=0
+```
+
+y espera unos segundos; el join suele continuar.
+
+Los Pods **siguen sin navegar** a Internet (eso es la red del Pod/CNI). Lo que se
+arregla es **bajar imágenes**. `wget` desde dentro de un Pod a `1.1.1.1` puede fallar
+y no contradice un ImagePull correcto.
+
 ## Docker o puertos de M00
 
 ```bash

@@ -14,7 +14,7 @@ Generar un snapshot íntegro de etcd, simular un borrado y recuperar el objeto d
 
 ### En qué consiste
 
-Canario en etcd, `snapshot save` desde el maestro, `snapshot status`, borrado, reapply del YAML y notas de restore HA.
+Canario en etcd, `snapshot save` desde el maestro, `snapshot status`, borrado, reapply del YAML y notas de restore.
 
 ### 1 — Canario
 
@@ -80,14 +80,14 @@ kubectl -n shop get cm etcd-canary
 
 ### 5 — Restore crudo de etcd (solo si te lo piden; es destructivo)
 
-Un restore HA bien hecho sustituye el data-dir de **todos** los miembros con la misma identidad de clúster.
-En kind es fácil perder el quórum. Si lo experimentas:
+Un restore de etcd sustituye el data-dir del miembro. Aquí solo hay uno: si lo rompes, la API se queda muda.
 
-1. `docker stop` de `control-plane2` y `control-plane3`.
-2. Mover `etcd.yaml` fuera de `/etc/kubernetes/manifests` en el maestro restante.
-3. `etcdutl snapshot restore` sobre `/var/lib/etcd`.
-4. Devolver el manifiesto.
-5. Si la API no vuelve: `./scripts/cluster-down.sh && ./scripts/cluster-up.sh` y reaplica `infra/manifests/`.
+Si lo experimentas y no vuelve:
+
+1. Mover `etcd.yaml` fuera de `/etc/kubernetes/manifests` en el control-plane.
+2. `etcdutl snapshot restore` sobre `/var/lib/etcd`.
+3. Devolver el manifiesto.
+4. Si la API no vuelve: `./scripts/cluster-down.sh && ./scripts/cluster-up.sh` y reaplica `infra/manifests/`.
 
 **Por qué:** El temario pide restore; el curso te enseña el gesto **y** la vía de escape del laboratorio.
 
@@ -124,4 +124,4 @@ Ejemplos: Secret generado por un operador, ServiceAccount tokens, status de CRs,
 |---------|----------------|-----------------|
 | `etcdctl: command not found` | PATH del nodo / no estás en el Pod etcd | Usa `kubectl -n kube-system exec etcd-k8s-ops-control-plane -- etcdctl …` |
 | snapshot status error | Fichero a medias | Repite `snapshot save`; no copies `/var/lib/etcd` |
-| API muerta tras restore | Quórum HA | `cluster-down` + `cluster-up` |
+| API muerta tras restore | etcd a medias | `cluster-down` + `cluster-up` |

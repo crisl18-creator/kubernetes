@@ -23,7 +23,7 @@ Fork del repositorio, arranque del Codespace y comprobación de que el `postCrea
 **Acción:** Haz fork de `my-it-labs/kubernetes-administradores-201` a tu cuenta. En **tu fork**:
 **Code → Codespaces → Create codespace on main**. Elige máquina **8 vCPU / 16 GB** si el menú lo permite.
 
-**Por qué:** Cada alumno trabaja en su copia. El clúster HA + Prometheus necesita RAM de sobra.
+**Por qué:** Cada alumno trabaja en su copia. Prometheus (M07) agradece RAM de sobra.
 
 **Resultado esperado:** Terminal en `/workspaces/kubernetes-administradores-201` (o el nombre de tu fork).
 

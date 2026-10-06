@@ -11,14 +11,24 @@ Dejar que `shop` hable consigo mismo (y con Ingress/DNS) y **bloquear** el acces
 ### Prerrequisitos
 
 - [M05-01](M05-01-services-ingress.md) (`netcheck`, `shop-web`, `payments-api`).
+  El impostor de M05-01 tiene que estar **borrado** (si no, `curl` a `shop-web` a veces
+  devuelve `IMPOSTOR` y confunde el “antes”).
 
 ### En qué consiste
 
-Medir conectividad antes/después de aplicar `infra/manifests/m05/networkpolicy.yaml`.
+Medir conectividad **antes** y **después** de `infra/manifests/m05/networkpolicy.yaml`.
+`netcheck` tiene nombre fijo: no hace falta copiarlo de una tabla.
 
 ### 1 — Línea base (todo abierto)
 
-**Acción:**
+**Acción:** confirma que los tres objetos están Running:
+
+```bash
+kubectl -n shop get pods
+kubectl -n payments get pods
+```
+
+Luego mide (el timeout evita que te quedes minutos si ya hubiera una policy a medias):
 
 ```bash
 kubectl -n shop exec netcheck -- curl -s --max-time 5 http://shop-web.shop
@@ -27,7 +37,8 @@ kubectl -n shop exec netcheck -- curl -s --max-time 5 http://payments-api.paymen
 
 **Por qué:** Sin policies, Calico no filtra este-oeste. Tienes que ver el “antes” para creer el “después”.
 
-**Resultado esperado:** `shop-web …` y `payments-ok`.
+**Resultado esperado:** texto de `shop-web` y `payments-ok`. Si `shop-web` sale `IMPOSTOR`,
+vuelve a M05-01 y borra `shop-impostor`.
 
 ### 2 — Aplicar policies
 

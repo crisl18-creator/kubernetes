@@ -29,7 +29,7 @@ docker info >/dev/null && echo docker-ok
 docker version --format '{{.Server.Version}}'
 ```
 
-**Por qué:** El daemon de Docker es el del Codespace (Docker-outside-of-Docker). No hay que instalar nada en tu PC.
+**Por qué:** El daemon de Docker corre **dentro** del Codespace (Docker-in-Docker). No hay que instalar nada en tu PC.
 
 **Resultado esperado:** `docker-ok` y un número de versión. El `pwd` es `/workspaces/…` (nombre de tu fork).
 

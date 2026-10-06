@@ -6,18 +6,65 @@ CONFIG="$ROOT/infra/kind/cluster.yaml"
 CLUSTER_NAME="k8s-ops"
 ADDONS="$ROOT/infra/addons"
 
-if ! command -v kind >/dev/null 2>&1; then
+wait_for_runtime() {
+  local i
+  for i in $(seq 1 60); do
+    if command -v kind >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+      return 0
+    fi
+    echo "Esperando Docker/kind (el Codespace aún está en el bootstrap)…"
+    sleep 5
+  done
   echo "ERROR: kind no instalado. Ejecuta scripts/bootstrap-tools.sh o espera a que termine el Codespace."
   exit 1
-fi
+}
+
+wait_for_runtime
+bash "$ROOT/scripts/kind-net-fix.sh" || true
 
 if ! kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
-  echo "Creando clúster $CLUSTER_NAME (kind HA)…"
-  kind create cluster --name "$CLUSTER_NAME" --config "$CONFIG"
+  echo "Creando clúster $CLUSTER_NAME (1 control-plane + 2 workers)…"
+  # Sin HTTP_PROXY aquí: kubeadm join lo cogería y se queda pillado en "Joining worker nodes".
+  # El proxy de pull lo aplica kind-net-fix.sh en containerd cuando los nodos ya existen.
+  # Docker 29 puede reactivar br_netfilter al arrancar los nodos (mismo hang).
+  bridge_keep=""
+  cleanup_bridge_keep() {
+    if [ -n "${bridge_keep:-}" ]; then
+      kill "$bridge_keep" 2>/dev/null || true
+      wait "$bridge_keep" 2>/dev/null || true
+      bridge_keep=""
+    fi
+  }
+  trap cleanup_bridge_keep EXIT
+  if [ -e /proc/sys/net/bridge/bridge-nf-call-iptables ]; then
+    (
+      while true; do
+        if [ -w /proc/sys/net/bridge/bridge-nf-call-iptables ]; then
+          echo 0 >/proc/sys/net/bridge/bridge-nf-call-iptables 2>/dev/null || true
+        elif command -v sudo >/dev/null 2>&1; then
+          echo 0 | sudo -n tee /proc/sys/net/bridge/bridge-nf-call-iptables >/dev/null 2>&1 || true
+        fi
+        sleep 1
+      done
+    ) &
+    bridge_keep=$!
+  fi
+  env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy \
+    kind create cluster --name "$CLUSTER_NAME" --config "$CONFIG"
+  cleanup_bridge_keep
 else
   echo "Clúster $CLUSTER_NAME ya existe."
 fi
 
+bash "$ROOT/scripts/kind-net-fix.sh" || true
+
+# containerd se reinicia al poner el proxy; el API puede tardar un instante.
+for _ in $(seq 1 30); do
+  if kubectl cluster-info --context "kind-${CLUSTER_NAME}" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
 kubectl cluster-info --context "kind-${CLUSTER_NAME}" >/dev/null
 kubectl config use-context "kind-${CLUSTER_NAME}" >/dev/null
 

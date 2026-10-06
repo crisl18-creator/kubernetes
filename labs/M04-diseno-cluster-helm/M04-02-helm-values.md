@@ -10,7 +10,7 @@ Instalar el chart `ops-web` y actualizarlo con un fichero de values (staging: 3 
 
 ### Prerrequisitos
 
-- Control-plane HA recuperado ([M04-01](M04-01-ha-fallo-maestro.md)).
+- Tres nodos Ready. Si en M04-01 paraste el control-plane, arráncalo otra vez (`docker start k8s-ops-control-plane`).
 
 ### En qué consiste
 

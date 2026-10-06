@@ -48,8 +48,13 @@ kubectl -n shop wait --for=condition=Ready pod -l app=inventory --timeout=90s
 **Acción:**
 
 ```bash
-POD=$(kubectl -n shop get pod -l app=inventory -o jsonpath='{.items[0].metadata.name}')
-kubectl -n shop exec "$POD" -- sh -c 'echo hola-persistencia >> /data/log.txt && cat /data/log.txt'
+kubectl -n shop get pods -l app=inventory
+```
+
+Copia el **NAME** de la única fila (algo como `inventory-7d9f…`). Pégalo:
+
+```bash
+kubectl -n shop exec inventory-XXXX -- sh -c 'echo hola-persistencia >> /data/log.txt && cat /data/log.txt'
 ```
 
 **Por qué:** El mount `/data` es el PVC, no el overlay del contenedor.
@@ -60,18 +65,23 @@ kubectl -n shop exec "$POD" -- sh -c 'echo hola-persistencia >> /data/log.txt &&
 
 ### 4 — Matar el Pod y releer
 
-**Acción:**
+**Acción:** el NAME que usaste en el paso 3 (el Pod actual):
 
 ```bash
-kubectl -n shop delete pod -l app=inventory
-kubectl -n shop wait --for=condition=Ready pod -l app=inventory --timeout=90s
-POD=$(kubectl -n shop get pod -l app=inventory -o jsonpath='{.items[0].metadata.name}')
-kubectl -n shop exec "$POD" -- cat /data/log.txt
+kubectl -n shop delete pod inventory-XXXX
+kubectl -n shop get pods -l app=inventory -w
+```
+
+Cuando salga un Pod `Running` (nombre **distinto**), Ctrl+C. Copia el NAME **nuevo**:
+
+```bash
+kubectl -n shop exec inventory-YYYY -- cat /data/log.txt
 ```
 
 **Por qué:** El ReplicaSet crea un Pod **nuevo**. Si el volumen está bien, el texto sigue.
+El nombre cambia: por eso no reutilices el NAME del paso 3.
 
-**Resultado esperado:** `hola-persistencia` sigue en el log. El nombre del Pod **ha cambiado**.
+**Resultado esperado:** `hola-persistencia` sigue en el log. El NAME **no** es el que borraste.
 
 ## Comprueba tu entendimiento
 
@@ -85,9 +95,12 @@ kubectl -n shop exec "$POD" -- cat /data/log.txt
 
 **Qué no sobrevive**
 
-`kubectl -n shop exec "$POD" -- ls /tmp`
+`kubectl -n shop get po -l app=inventory -o wide`
 
-→ `/tmp` del contenedor está vacío o distinto: no es el PVC.
+Copia el NAME y: `kubectl -n shop exec inventory-XXXX -- ls /tmp`
+
+→ `/tmp` del contenedor está vacío o distinto: no es el PVC. El NAME es el **actual**
+(el del `get pods` de ahora, no el del Pod que borramos).
 
 ## Reto
 

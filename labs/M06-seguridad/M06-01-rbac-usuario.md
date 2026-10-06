@@ -45,6 +45,7 @@ spec:
   usages: ["client auth"]
 EOF
 kubectl certificate approve appuser
+# El certificado es un blob, no una tabla: aquí sí hace falta jsonpath.
 kubectl get csr appuser -o jsonpath='{.status.certificate}' | base64 -d > appuser.crt
 ```
 

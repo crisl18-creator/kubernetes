@@ -8,21 +8,27 @@
 
 ## Qué aprenderás
 
-- Encadenar Pod → Service (ClusterIP) → Ingress (borde).
-- Balancear tráfico entre réplicas.
-- Restringir este-oeste con NetworkPolicy entre namespaces.
+- Por qué un Pod no sirve como nombre estable (su IP muere con él).
+- Cómo un Service elige backends **por labels** (Endpoints).
+- Qué pasa si un Pod suelto lleva las mismas etiquetas (impostor).
+- Entrar por Ingress (borde del Codespace).
+- Cortar este-oeste con NetworkPolicy entre namespaces.
 
 ## Teoría
 
-Cada Pod recibe una IP del CIDR de Calico (`192.168.0.0/16` aquí). Esa IP muere con el Pod,
+Cada Pod recibe una IP del CIDR de Calico (`10.244.0.0/16` aquí). Esa IP muere con el Pod,
 así que no sirve como nombre estable. Un **Service** es la abstracción que agrupa Pods
-(por labels) y define **cómo acceder** a ellos (ClusterIP, NodePort, puerto).
+**por selector de labels** y define cómo acceder a ellos (ClusterIP, NodePort, puerto).
+
+El Service **no** dice “los Pods que creó el Deployment X”. Dice `selector: app=shop-web`.
+Cualquier objeto Ready con esas labels entra en **Endpoints**. Un `kubectl run` mal
+etiquetado, un Pod YAML de prueba o un compañero de lab te mete tráfico en un proceso
+que no es “la app”.
 
 ![Service delante de Pods en varios nodos](../img/M05-demo-service.png)
 
 **Ingress** mapea host y rutas HTTP hacia Services. En cloud suele haber un balanceador
-de pago delante; aquí el controller **ingress-nginx** (proxy inverso) entra por `:8080`/`:8443`
-del Codespace.
+de pago delante; aquí el controller **ingress-nginx** entra por `:8080`/`:8443` del Codespace.
 
 | Tipo | Alcance | Uso típico |
 |------|---------|------------|
@@ -42,17 +48,19 @@ policy que selecciona un Pod, ese Pod pasa a “deny + lo que la policy permite�
 
 > Recorrido que hace el formador en vivo.
 
-1. `kubectl -n shop get svc shop-web` muestra ClusterIP. Varios `wget` al Service caen en réplicas
-   distintas (http-echo no muestra hostname, pero `kubectl get ep` confirma varias IPs).
-2. El Ingress `shop.local` entra por `:8080` del Codespace (hostPort del control-plane `ingress-ready`).
-3. Tras aplicar las policies, un `netcheck` en `shop` sigue llegando a `shop-web` y **deja de**
-   llegar a `payments-api.payments`.
+1. `kubectl -n shop get pods -o wide` y `get endpoints shop-web`: las IPs coinciden.
+2. Se aplica `pod-impostor.yaml` (label `app: shop-web`, texto `IMPOSTOR`). Endpoints
+   ganan una IP. Varios `curl` desde `netcheck` a `http://shop-web.shop` mezclan la app
+   y `IMPOSTOR`. Al borrar el Pod suelto, el Deployment no lo recrea.
+3. Ingress `shop.local` por `:8080` del Codespace (`Host: shop.local`).
+4. Tras las policies, `netcheck` sigue llegando a `shop-web` y **deja de** llegar a
+   `payments-api.payments`.
 
 ## Ahora practica tú
 
 | Lab | Título | Qué harás |
 |-----|--------|-----------|
-| M05-01 | [Services, Ingress y balanceo](M05-01-services-ingress.md) | Exponer y balancear `shop-web` |
+| M05-01 | [Services, endpoints e Ingress](M05-01-services-ingress.md) | Endpoints, impostor, borde HTTP |
 | M05-02 | [NetworkPolicy entre namespaces](M05-02-networkpolicy.md) | Cortar shop → payments |
 
-→ Empieza por **[M05-01 — Services, Ingress y balanceo](M05-01-services-ingress.md)**.
+→ Empieza por **[M05-01 — Services, endpoints e Ingress](M05-01-services-ingress.md)**.

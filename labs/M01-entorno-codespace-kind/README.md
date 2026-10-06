@@ -10,7 +10,7 @@
 
 - Preparar tu fork y Codespace con Docker, kind, kubectl y Helm.
 - Distinguir Codespace, Docker, kind y kubectl: qué pieza hace cada trabajo.
-- Crear el clúster operativo `k8s-ops` (alta disponibilidad + addons).
+- Crear el clúster operativo `k8s-ops` (1 control-plane + 2 workers + addons).
 - Comprobar que nodos, CNI, Ingress y StorageClass están listos.
 
 ## Teoría
@@ -28,7 +28,7 @@ igual que un clúster clásico, pero cabe en el Codespace.
 
 El clúster del curso se llama **`k8s-ops`**. Nace ya como clúster **operativo de laboratorio**:
 
-- 3 nodos control-plane (quórum de etcd) + 2 workers
+- 1 nodo control-plane + 2 workers
 - CNI **Calico** (NetworkPolicy de verdad)
 - **ingress-nginx**, **metrics-server**, StorageClass **local-path**
 
@@ -39,7 +39,7 @@ El control-plane (API) reparte trabajo a los workers, que son quienes ejecutan l
 > [!NOTE]
 > kind no sustituye un datacenter. Sí te deja practicar los **mismos objetos y fallos**
 > (API, etcd, Deployments, RBAC) que un administrador ve en un clúster real.
-> Las diapos clásicas dibujan **un** máster; `k8s-ops` levanta **tres** para HA.
+> Este laboratorio usa **un** máster (como el diagrama clásico) y dos workers.
 
 ### Scripts (`scripts/`)
 
@@ -56,15 +56,13 @@ El control-plane (API) reparte trabajo a los workers, que son quienes ejecutan l
 
 1. Al abrir el repo en GitHub aparece **Code → Codespaces**. Al crear el Codespace, el
    `postCreate` deja kind, kubectl y Helm en el PATH.
-2. En la terminal de la raíz, `./scripts/cluster-up.sh` crea cinco contenedores-nodo y un
-   load balancer de API. Mientras Calico no está listo, los nodos se ven `NotReady`.
-3. Al terminar, `kubectl get nodes` muestra tres `control-plane` y dos `worker` en `Ready`.
+2. En la terminal de la raíz, `./scripts/cluster-up.sh` crea tres contenedores-nodo.
+   Mientras Calico no está listo, los nodos se ven `NotReady`.
+3. Al terminar, `kubectl get nodes` muestra un `control-plane` y dos `worker` en `Ready`.
    `./scripts/health-check.sh` resume el mismo estado en una sola pasada.
 
 ```text
 k8s-ops-control-plane     Ready   control-plane
-k8s-ops-control-plane2    Ready   control-plane
-k8s-ops-control-plane3    Ready   control-plane
 k8s-ops-worker            Ready   <none>
 k8s-ops-worker2           Ready   <none>
 ```

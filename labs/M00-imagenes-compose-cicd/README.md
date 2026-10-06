@@ -80,19 +80,58 @@ services:
 
 ### CI/CD hasta el registry
 
-GitHub Actions, en **tu fork**, hace el mismo `docker build` en un runner y empuja a
-**GHCR** (`ghcr.io/<cuenta>/kubernetes-administradores-201/m00-web`).
+Hasta M00-09 **tú** construías en el Codespace. Eso no escala: cada persona tendría
+una imagen distinta, en un disco que se borra al apagar el Codespace. CI/CD mueve
+ese trabajo a un **robot** de GitHub.
+
+| Sigla | Significa | En este curso |
+|-------|-----------|----------------|
+| **CI** (Continuous Integration) | Cada cambio se **construye y comprueba** igual, en una máquina limpia | Actions ejecuta `docker build` |
+| **CD** (Continuous Delivery/Deploy) | El artefacto se **publica** donde otros pueden usarlo | `docker push` a GHCR |
 
 ```text
-push / workflow_dispatch  →  Actions  →  build (target runtime)  →  ghcr.io
+tú (commit / botón Run)
+        │
+        ▼
+  GitHub Actions          ← no es tu Codespace
+  (runner ubuntu-latest)
+        │  1. clona el repo (checkout)
+        │  2. se identifica en el registry (login)
+        │  3. docker build (etapa runtime)
+        │  4. docker push
+        ▼
+  GHCR  ghcr.io/<cuenta>/<repo>/m00-web:tag
+        │
+        ▼
+  Cualquier máquina (Codespace, kind, un servidor) hace docker pull
 ```
 
-No necesitas Docker Hub. El `GITHUB_TOKEN` del workflow basta si el workflow tiene
-`packages: write`.
+**Piezas que se confunden**
+
+| Pieza | Qué es | Qué no es |
+|-------|--------|-----------|
+| **Workflow** | Receta YAML en `.github/workflows/` | Un contenedor |
+| **Runner** | VM de GitHub que ejecuta esa receta | Tu Codespace |
+| **Job** | Un bloque de pasos (`publish`) | El registry |
+| **Action** | Un paso reutilizable (`checkout`, `login`, `build-push`) | Un comando que inventas tú |
+| **Registry** | Almacén de **imágenes** (GHCR, Docker Hub) | Git (eso guarda el código) |
+| **GHCR** | GitHub Container Registry: `ghcr.io/…` | El repo git; convive en GitHub, pero es otro servicio |
+| **Tag de imagen** | `latest`, o el SHA del commit | La rama `main` de git (son mundos distintos) |
+| **`GITHUB_TOKEN`** | Contraseña temporal que GitHub inyecta en el job | Tu password de login web |
+
+El workflow del curso está en `.github/workflows/m00-publish-image.yml`. Se dispara de
+dos maneras:
+
+1. **A mano** (`workflow_dispatch`): botón **Run workflow** en Actions.
+2. **Al hacer push** a `main` si cambias `infra/m00/web/**` o el propio YAML.
 
 > [!NOTE]
-> **Tag** no es lo mismo que **contenedor**. `m00-web:v1` y `m00-web:v2` son dos
-> recetas. El puerto 8888 puede quedarse igual: cambias *qué imagen* está publicada.
+> El build de CI usa la misma receta de **prod** (`Dockerfile` + `target: runtime`):
+> HTML cocido en la imagen, sin volumen. Es M00-09, pero en un robot.
+
+> [!WARNING]
+> Tienes que lanzarlo en **tu fork**. En el repo `my-it-labs/…` un alumno no puede
+> crear paquetes ni, a veces, disparar Actions.
 
 ## Demostración guiada
 
@@ -105,8 +144,9 @@ No necesitas Docker Hub. El `GITHUB_TOKEN` del workflow basta si el workflow tie
    el navegador (misma URL) pasa a naranja.
 3. `docker compose -f infra/m00/web/compose.yaml up --build` levanta **web + api**.
    8888 es la web; 8889 responde `soy la api del compose`.
-4. En GitHub: **Actions → M00 publicar imagen → Run workflow**. Al terminar, Packages
-   muestra `m00-web`.
+4. En **tu fork**: Actions → **M00 publicar imagen** → **Run workflow**. El runner
+   (no el Codespace) hace checkout, login en GHCR y `build --target runtime`. Al
+   terminar, **Packages** muestra `m00-web`.
 
 ## Ahora practica tú
 
