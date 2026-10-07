@@ -49,7 +49,7 @@ Prometheus Operator vigila objetos `Prometheus` y `ServiceMonitor` y materializa
 1. `kubectl drain k8s-ops-worker --ignore-daemonsets --delete-emptydir-data` mueve Pods al
    otro worker. `uncordon` lo reabre.
 2. `helm install kps` con `infra/monitoring/values.yaml` crea el namespace `monitoring`,
-   CRDs y Grafana. Un port-forward a `svc/kps-grafana` abre la UI en `:3000`.
+   CRDs y Grafana. Un port-forward `--address 0.0.0.0` a `svc/kps-grafana` abre la UI en `:3000`.
 3. `etcdctl snapshot save` dentro del control-plane deja un fichero que `snapshot status`
    declara íntegro.
 

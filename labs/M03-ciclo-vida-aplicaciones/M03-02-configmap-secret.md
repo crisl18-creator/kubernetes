@@ -20,7 +20,8 @@ ClusterIP.
 ### En qué consiste
 
 Aplicar `infra/manifests/m03/shop.yaml` (añade ConfigMap, Secret, Service y `envFrom` al
-Deployment). Inspeccionar objetos, copiar un Pod, `exec` y `printenv`.
+Deployment). Inspeccionar objetos, copiar un Pod y mirar las variables **con
+`kubectl debug`**: la imagen `http-echo` no trae shell.
 
 ### 1 — Leer qué se añade
 
@@ -86,30 +87,51 @@ base64; al decodificar, el token de laboratorio.
 
 ### 4 — Variables dentro del contenedor
 
-**Acción:** lista los Pods y copia **un** NAME de la columna:
+`hashicorp/http-echo` es un binario mínimo: **no hay** `sh`, `bash`, `printenv` ni `cat`.
+Un `kubectl exec … -- printenv` falla con `executable file not found`. Eso no es un error
+del lab: la app no trae distro. Para entrar se añade un contenedor de depuración (Alpine)
+que **comparte el PID** del contenedor `web`.
+
+**Acción:** lista los Pods y copia **un** NAME:
 
 ```bash
 kubectl -n shop get pods
 ```
 
-Pégalo en `exec` (cambia `shop-web-XXXX`):
+Sustituye `shop-web-XXXX` por el de tu tabla (el contenedor se llama `web`, como en el YAML):
 
 ```bash
-kubectl -n shop exec shop-web-XXXX -- printenv
+kubectl -n shop debug -it shop-web-XXXX --image=alpine:3.20 --target=web -- sh
 ```
 
-En la salida busca `APP_TITLE`, `APP_ENV` y `APP_TOKEN`. Si hay mucho ruido:
+La primera vez tarda: el nodo tiene que bajar `alpine:3.20`. Cuando veas el prompt `#`,
+**no** uses `printenv` a secas (eso es el entorno de Alpine, no el de http-echo). Lee el
+entorno del PID 1 (el proceso de la app):
+
+```sh
+tr '\0' '\n' < /proc/1/environ | grep APP_
+```
+
+Sal con `exit`.
+
+Si prefieres no abrir sesión interactiva:
 
 ```bash
-kubectl -n shop exec shop-web-XXXX -- printenv | grep APP_
+kubectl -n shop debug shop-web-XXXX --image=alpine:3.20 --target=web -- \
+  sh -c "tr '\0' '\n' < /proc/1/environ | grep APP_"
 ```
 
-**Por qué:** `envFrom` monta **todas** las claves del ConfigMap y del Secret como
-variables. No hay magia distinta entre uno y otro a ojos del proceso: la diferencia es
-el objeto en la API (y quién puede `get` cada uno).
+**Por qué:** `envFrom` inyecta las claves en **el proceso de la app**. El contenedor
+`debug` es otro proceso: `--target=web` te deja ver `/proc/1` de http-echo. ConfigMap y
+Secret, a ojos del proceso, son el mismo tipo de variable; se distinguen en la API.
 
-**Resultado esperado:** las tres variables. `APP_TOKEN` en claro **dentro** del
-contenedor (el proceso las necesita así).
+**Resultado esperado:** `APP_TITLE`, `APP_ENV` y `APP_TOKEN`. El token sale **en claro**
+dentro del proceso (lo necesita para trabajar).
+
+> [!TIP]
+> `kubectl describe pod shop-web-XXXX` lista *de dónde* salen las variables
+> (`shop-config`, `shop-secret`), no los valores. Para los valores hace falta el debug
+> (o leer el ConfigMap/Secret como en el paso 3).
 
 ### 5 — Cambiar solo la config
 
@@ -130,10 +152,11 @@ kubectl -n shop rollout status deploy/shop-web
 kubectl -n shop get pods
 ```
 
-Copia el NAME **nuevo** (otra vez cambió el hash) y comprueba:
+Copia el NAME **nuevo** (otra vez cambió el hash) y el mismo debug:
 
 ```bash
-kubectl -n shop exec shop-web-XXXX -- printenv | grep APP_TITLE
+kubectl -n shop debug shop-web-XXXX --image=alpine:3.20 --target=web -- \
+  sh -c "tr '\0' '\n' < /proc/1/environ | grep APP_TITLE"
 ```
 
 **Por qué:** `rollout restart` es un pase de versión que no cambia tu YAML de imagen:
@@ -176,7 +199,7 @@ mismas labels.
 ### 1 — Quitar envFrom y ver el hueco
 
 Edita el Deployment (`kubectl -n shop edit deploy shop-web`), borra el bloque `envFrom`,
-guarda, espera al rollout, copia un Pod nuevo y `printenv | grep APP_`.
+guarda, espera al rollout, copia un Pod nuevo y el mismo `debug` + `grep APP_` del paso 4.
 
 <details>
 <summary>Ver solución</summary>
@@ -191,6 +214,8 @@ dejar de referenciarlos no los borra. Recupera con
 
 | Síntoma | Causa probable | Cómo arreglarlo |
 |---------|----------------|-----------------|
-| `NotFound` en exec | NAME de ejemplo, no el de tu `get pods` | Vuelve a listar y copia |
+| `executable file not found` con `exec` | http-echo no trae shell | Es normal; usa `debug` del paso 4 |
+| `printenv` en el `#` de Alpine sin `APP_` | Estás en el contenedor debug, no en la app | `tr '\0' '\n' < /proc/1/environ \| grep APP_` |
+| `NotFound` en debug | NAME de ejemplo, no el de tu `get pods` | Vuelve a listar y copia |
 | `APP_TITLE` sigue el valor viejo | No hiciste `rollout restart` (o apply) | Los env no se recargan en caliente |
-| `printenv` vacío de APP_ | Aún no aplicaste `shop.yaml` | Paso 2 |
+| debug tarda / ImagePullBackOff | El nodo baja Alpine | Espera; [TROUBLESHOOTING](../TROUBLESHOOTING.md) |

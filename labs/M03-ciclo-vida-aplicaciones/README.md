@@ -20,7 +20,7 @@ En estos labs **no** hay `POD=$(kubectl … jsonpath=…)`. El gesto es siempre 
 
 1. `kubectl -n shop get pods` (o `get pods -o wide`).
 2. Copias el **NAME** de la tabla.
-3. Lo pegas: `kubectl -n shop describe pod …` / `exec …`.
+3. Lo pegas: `kubectl -n shop describe pod …` o, en M03-02, `kubectl debug …`.
 
 El sufijo (`-6f7d8c9b4-xk2lm`) cambia en cada clúster y en cada ReplicaSet. Si copias el
 nombre de la guía al pie de la letra, fallará.
@@ -77,7 +77,8 @@ Los nodos son finitos (CPU/RAM). En los manifiestos del curso cada contenedor de
 3. Canary (`shop-web-canary`) = un Deployment extra. Promoción = aplicar `shop-web-v2.yaml`
    y borrar el canary. `rollout history` lista revisiones.
 4. `shop-web-imagen-mala.yaml` deja Pods en `ImagePullBackOff`; `rollout undo` recupera v2.
-5. `shop.yaml` añade ConfigMap/Secret y `envFrom`. `exec` + `printenv` (NAME copiado) muestra `APP_*`.
+5. `shop.yaml` añade ConfigMap/Secret y `envFrom`. `http-echo` no tiene shell: se mira
+   el entorno con `kubectl debug --image=alpine:3.20 --target=web` y `/proc/1/environ`.
 
 ## Ahora practica tú
 

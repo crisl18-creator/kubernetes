@@ -70,8 +70,28 @@ kubectl config use-context "kind-${CLUSTER_NAME}" >/dev/null
 
 echo "Instalando Calico…"
 kubectl apply -f "$ADDONS/calico.yaml"
+# Si el IPPool nació con IPIP (clúster anterior), cámbialo: si no, un worker se queda NotReady.
+if kubectl get ippool >/dev/null 2>&1; then
+  kubectl get ippool -o name | while read -r pool; do
+    kubectl patch "$pool" --type merge -p '{"spec":{"ipipMode":"Never","vxlanMode":"Always"}}' >/dev/null 2>&1 || true
+  done || true
+fi
+
+echo "Esperando Calico en los nodos…"
+kubectl -n kube-system wait --for=condition=Ready pod -l k8s-app=calico-node --timeout=240s || true
+
+# Tras el proxy de containerd, kubelet a veces no marca Ready. Solo toca los NotReady.
+notready="$(kubectl get nodes --no-headers 2>/dev/null | awk '$2 != "Ready" {print $1}' || true)"
+if [ -n "${notready}" ]; then
+  echo "Nodos NotReady, reiniciando kubelet: ${notready}"
+  for node in ${notready}; do
+    docker exec "$node" systemctl restart kubelet 2>/dev/null || true
+  done
+  sleep 8
+fi
+
 echo "Esperando nodos Ready (CNI)…"
-kubectl wait --for=condition=Ready nodes --all --timeout=240s
+kubectl wait --for=condition=Ready nodes --all --timeout=180s
 
 echo "Instalando metrics-server, ingress-nginx y local-path…"
 kubectl apply -f "$ADDONS/metrics-server.yaml"

@@ -96,23 +96,76 @@ bash scripts/bootstrap-tools.sh
 command -v kind kubectl helm docker
 ```
 
-## Nodos `NotReady`
+## Un worker `NotReady`
 
-Calico tarda en arrancar, o el Codespace se queda sin RAM.
+En Codespaces pasa a menudo: Calico con **IPIP/BGP** no peera en la red Docker de Kind,
+o kubelet no se recupera tras el proxy de `containerd`. El nodo sin CNI se queda NotReady.
+
+**Ver qué nodo y por qué** (copia el NAME de la tabla):
 
 ```bash
 kubectl get nodes
-kubectl get pods -A | grep -E 'calico|kube-system'
-./scripts/health-check.sh
+kubectl describe node k8s-ops-worker2
+kubectl -n kube-system get pods -o wide
 ```
 
-Si sigue igual: **Codespace 16 GB** y `./scripts/cluster-down.sh && ./scripts/cluster-up.sh`.
+En `describe`, busca `NetworkUnavailable` o `KubeletNotReady`. En los pods, el
+`calico-node-…` de **ese** nodo: si está `0/1`, `CrashLoop` o `ImagePullBackOff`, el
+worker no puede ponerse Ready.
+
+**Arreglo en caliente** (sustituye el nombre de **tu** worker):
+
+```bash
+docker exec k8s-ops-worker2 systemctl restart kubelet
+kubectl get nodes
+```
+
+Espera 20 s. Si `calico-node` no tira imagen: `bash scripts/kind-net-fix.sh` y otra vez
+el `restart kubelet`.
+
+**Arreglo de verdad** (el `cluster-up` del repo ya usa Calico en VXLAN, no IPIP):
+
+```bash
+git pull
+./scripts/cluster-down.sh
+./scripts/cluster-up.sh
+kubectl get nodes
+```
+
+Los tres deben quedar `Ready`. Un Codespace de **2 núcleos / 8 GB** también vale para
+M01–M06; Prometheus (M07) pide 16 GB.
 
 ## Contexto kubectl incorrecto
 
 ```bash
 kubectl config use-context kind-k8s-ops
 ```
+
+## Port-forward a un Pod o un Service (Codespace)
+
+`kubectl port-forward` por defecto escucha solo en `127.0.0.1`. La pestaña **Ports** del
+Codespace entra por otra interfaz: ves el puerto y el navegador no carga.
+
+**Así sí** (cambia namespace, servicio y puertos):
+
+```bash
+kubectl -n shop port-forward --address 0.0.0.0 svc/shop-web 18080:80
+```
+
+Debe salir `Forwarding from 0.0.0.0:18080 -> 80`. Luego Ports → **18080** (o
+`curl -s http://127.0.0.1:18080/` en la terminal del Codespace).
+
+`--address 0.0.0.0` es lo que hace usable el PF aquí. Sin eso, `curl` a localhost en la
+**misma** terminal puede ir, y la URL de GitHub no.
+
+No uses `8080`: Kind ya lo tiene ocupado con Ingress.
+
+Si **no** aparece `Forwarding from` y se queda colgado, el apiserver no habla con el
+kubelet del worker (`:10250`). Eso no lo arregla `--address`. Opciones:
+
+1. `kubectl get nodes` — si un worker está NotReady, arréglalo primero.
+2. Entra por **Ingress** (`curl -sH 'Host: shop.local' http://127.0.0.1:8080/`), que no usa port-forward.
+3. Recrear el clúster: `./scripts/cluster-down.sh && ./scripts/cluster-up.sh`.
 
 ## `curl` a Ingress no responde en `:8080`
 

@@ -53,17 +53,20 @@ kubectl -n monitoring get pods
 **Acción:**
 
 ```bash
-kubectl -n monitoring port-forward svc/kps-grafana 3000:80
+kubectl -n monitoring port-forward --address 0.0.0.0 svc/kps-grafana 3000:80
 ```
 
 En Ports abre **3000**. Usuario `admin`, contraseña `admin` (values del curso).
 
 **Por qué:** Grafana es la cara humana de las métricas que Prometheus ya está scrapeando.
+`--address 0.0.0.0` es obligatorio en Codespaces: sin eso el proceso solo escucha en
+`127.0.0.1` y la pestaña Ports no entra. Deja ese comando en un terminal; `Ctrl+C` lo corta.
 
 **Resultado esperado:** login y dashboards preinstalados (Kubernetes / Node Exporter).
 
-> [!TIP]
-> Deja el port-forward en un terminal. `Ctrl+C` lo corta. El servicio sigue dentro del clúster.
+Si el comando se queda pillado y no imprime `Forwarding from 0.0.0.0:3000`, el apiserver
+no llega al kubelet del worker (misma red kind). Comprueba `kubectl get nodes` y
+[TROUBLESHOOTING](../TROUBLESHOOTING.md).
 
 ### 4 — Prometheus
 
@@ -71,7 +74,7 @@ En Ports abre **3000**. Usuario `admin`, contraseña `admin` (values del curso).
 
 ```bash
 kubectl -n monitoring get svc
-kubectl -n monitoring port-forward svc/kps-prometheus 9090:9090
+kubectl -n monitoring port-forward --address 0.0.0.0 svc/kps-prometheus 9090:9090
 ```
 
 Si el Service no se llama `kps-prometheus`, usa el que liste `get svc` (puerto 9090).

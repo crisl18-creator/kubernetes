@@ -101,19 +101,30 @@ configure_node_containerd_proxy() {
   local nop="localhost,127.0.0.1,10.96.0.0/16,10.244.0.0/16,172.16.0.0/12,.svc,.cluster.local"
   docker exec "$node" bash -c "
 set -e
+dropin=/etc/systemd/system/containerd.service.d/http-proxy.conf
 mkdir -p /etc/systemd/system/containerd.service.d
-cat > /etc/systemd/system/containerd.service.d/http-proxy.conf <<EOF
+need_restart=0
+if [ ! -f \"\$dropin\" ] || ! grep -q \"HTTPS_PROXY=${proxy}\" \"\$dropin\"; then
+  cat > \"\$dropin\" <<EOF
 [Service]
 Environment=HTTP_PROXY=${proxy}
 Environment=HTTPS_PROXY=${proxy}
 Environment=NO_PROXY=${nop}
 EOF
-if tr '\\0' '\\n' < /proc/\$(pgrep -x containerd | head -1)/environ 2>/dev/null | grep -qx \"HTTPS_PROXY=${proxy}\"; then
+  need_restart=1
+fi
+cid=\$(pgrep -x containerd | head -1 || true)
+if [ -z \"\$cid\" ] || ! tr '\\0' '\\n' < /proc/\$cid/environ 2>/dev/null | grep -qx \"HTTPS_PROXY=${proxy}\"; then
+  need_restart=1
+fi
+if [ \"\$need_restart\" != 1 ]; then
   exit 0
 fi
 systemctl daemon-reload
 systemctl restart containerd
-" 2>/dev/null && log "containerd usa proxy en ${node}" || true
+sleep 1
+systemctl restart kubelet || true
+" 2>/dev/null && log "containerd usa proxy en ${node}" || log "AVISO: no pude poner proxy en ${node}"
 }
 
 ensure_kind_network || true
